@@ -1,22 +1,25 @@
-int UPPER_CAM_FG = 2;
-int UPPER_CAM_BG = 3;
-int LOWER_CAM_FG = 4;
-int LOWER_CAM_BG = 5;
+#include <Servo.h>
 
-int STEPPER_ENABLE = 6;
-int STEPPER_STEP = 7;
-int STEPPER_DIR = 8;
+int UPPER_CAM_FG = 9;
+int UPPER_CAM_BG = 10;
+int LOWER_CAM_FG = 11;
+int LOWER_CAM_BG = 12;
 
-int PUMP_ENABLE = 9;
+int STEPPER_ENABLE = 1;
+int STEPPER_STEP = 0;
+int STEPPER_DIR = 4;
 
-int LED = 13;
+int PUMP_ENABLE = 7;
+
+int SERVO1 = 5;
+int SERVO2 = 6;
+
+Servo pbServo1, pbServo2;
 
 #define STEP_TIME 1500
 #define STEPS_PER_VANE  66
 
 void setup() {
-  
-  pinMode(LED, OUTPUT);
 
   Serial.begin(9600); //Open Serial connection for data logging & communication
 
@@ -42,6 +45,12 @@ void setup() {
   
   digitalWrite(PUMP_ENABLE, LOW);
 
+  pbServo1.attach(SERVO1);
+  pbServo2.attach(SERVO2);
+  
+  pbServo1.write(90);
+  pbServo2.write(90);
+
 }
 /* Commands:
 
@@ -58,6 +67,12 @@ s - disable stepper
 P - turn on air pump
 p - turn off air pump
 
+F - open front gate
+f - close front gate
+
+B - open back gate
+b - close back gate
+
 V - version
 
 */
@@ -66,40 +81,38 @@ void loop() {
   static int dir = 0;
   
   while ( Serial.available() > 0 ) {
-    digitalWrite(LED, HIGH); delay(100); digitalWrite(LED,LOW); delay(100);
-    digitalWrite(LED, HIGH); delay(100); digitalWrite(LED,LOW); delay(100);
-    String serialCmd = Serial.readStringUntil('\n');
-    if ( serialCmd == "A") {
+    char serialCmd = Serial.read();
+    if ( serialCmd == 'A') {
       digitalWrite(UPPER_CAM_FG, HIGH);
       digitalWrite(UPPER_CAM_BG, HIGH);
       digitalWrite(LOWER_CAM_FG, HIGH);
       digitalWrite(LOWER_CAM_BG, HIGH);
       Serial.println("A");
     }
-    else if ( serialCmd == "O") {
+    else if ( serialCmd == 'O') {
       digitalWrite(UPPER_CAM_FG, LOW);
       digitalWrite(UPPER_CAM_BG, LOW);
       digitalWrite(LOWER_CAM_FG, LOW);
       digitalWrite(LOWER_CAM_BG, LOW);
       Serial.println("O");
     }
-    else if ( serialCmd == "U") {
+    else if ( serialCmd == 'U') {
       digitalWrite(UPPER_CAM_FG, HIGH);
       Serial.println("U");
     }
-    else if ( serialCmd == "u") {
+    else if ( serialCmd == 'u') {
       digitalWrite(UPPER_CAM_BG, HIGH);
       Serial.println("u");
     }
-    else if ( serialCmd == "L") {
+    else if ( serialCmd == 'L') {
       digitalWrite(LOWER_CAM_FG, HIGH);
       Serial.println("L");
     }
-    else if ( serialCmd == "l") {
+    else if ( serialCmd == 'l') {
       digitalWrite(LOWER_CAM_BG, HIGH);
       Serial.println("l");
     }
-    else if ( serialCmd == "S" ) {
+    else if ( serialCmd == 'S' ) {
       dir = !dir;
       digitalWrite(STEPPER_DIR, dir); delay(10);
       digitalWrite(STEPPER_ENABLE, LOW); delay(10);
@@ -108,21 +121,36 @@ void loop() {
       }
       Serial.println("S");
     }
-    else if ( serialCmd == "s" ) {
+    else if ( serialCmd == 's' ) {
       digitalWrite(STEPPER_ENABLE, HIGH);
       Serial.println("s");
     }
-    else if ( serialCmd == "P" ) {
+    else if ( serialCmd == 'P' ) {
       digitalWrite(PUMP_ENABLE, HIGH);
       Serial.println("P");
     }
-    else if ( serialCmd == "p" ) {
+    else if ( serialCmd == 'p' ) {
       digitalWrite(PUMP_ENABLE, LOW);
       Serial.println("p");
     }
-    else if ( serialCmd == "V" ) {
-      Serial.println("Arduino Relay - version 1.0");
-      digitalWrite(LED, HIGH); delay(1000); digitalWrite(LED,LOW);
+    else if ( serialCmd == 'F' ) {
+      pbServo1.write(81);
+      Serial.println("F");
+    }
+    else if ( serialCmd == 'f' ) {
+      pbServo1.write(118);
+      Serial.println("f");
+    }
+    else if ( serialCmd == 'B' ) {
+      pbServo2.write(118);
+      Serial.println("B");
+    }
+    else if ( serialCmd == 'b' ) {
+      pbServo2.write(85);
+      Serial.println("b");
+    }
+    else if ( serialCmd == 'V' ) {
+      Serial.println("Arduino Relay - version 1.1");
     }
     else {
       Serial.print("Command '");
