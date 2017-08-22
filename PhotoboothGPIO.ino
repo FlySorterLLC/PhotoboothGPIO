@@ -1,4 +1,5 @@
 #include <Servo.h>
+#include <EEPROM.h>
 
 int UPPER_CAM_FG = 9;
 int UPPER_CAM_BG = 10;
@@ -16,8 +17,15 @@ int SERVO2 = 6;
 
 Servo pbServo1, pbServo2;
 
+byte FRONT_GATE_OPEN=90, FRONT_GATE_CLOSE=90, BACK_GATE_OPEN=90, BACK_GATE_CLOSE=90;
+
 #define STEP_TIME 1500
 #define STEPS_PER_VANE  66
+
+#define FGO_ADDRESS  0x02
+#define FGC_ADDRESS  0x03
+#define BGO_ADDRESS  0x04
+#define BGC_ADDRESS  0x05
 
 void setup() {
 
@@ -48,6 +56,13 @@ void setup() {
   pbServo1.attach(SERVO1);
   pbServo2.attach(SERVO2);
   
+  // Should do some validation here to make sure the values
+  // are between 0-180
+  FRONT_GATE_OPEN = EEPROM.read(FGO_ADDRESS);
+  FRONT_GATE_CLOSE = EEPROM.read(FGC_ADDRESS);
+  BACK_GATE_OPEN = EEPROM.read(BGO_ADDRESS);
+  BACK_GATE_CLOSE = EEPROM.read(BGC_ADDRESS);
+  
   pbServo1.write(90);
   pbServo2.write(90);
 
@@ -72,6 +87,9 @@ f - close front gate
 
 B - open back gate
 b - close back gate
+
+G?? - load front gate set points (? are bytes that represent angles from 0-180, open set point first, then close)
+g?? - load back gate set points (? are bytes that represent angles from 0-180, open set point first, then close)
 
 V - version
 
@@ -134,23 +152,51 @@ void loop() {
       Serial.println("p");
     }
     else if ( serialCmd == 'F' ) {
-      pbServo1.write(81);
+      pbServo1.write( FRONT_GATE_OPEN );
       Serial.println("F");
     }
     else if ( serialCmd == 'f' ) {
-      pbServo1.write(118);
+      pbServo1.write(FRONT_GATE_CLOSE);
       Serial.println("f");
     }
     else if ( serialCmd == 'B' ) {
-      pbServo2.write(118);
+      pbServo2.write(BACK_GATE_OPEN);
       Serial.println("B");
     }
     else if ( serialCmd == 'b' ) {
-      pbServo2.write(85);
+      pbServo2.write(BACK_GATE_CLOSE);
       Serial.println("b");
     }
+    else if ( serialCmd == 'G' ) {
+      delay(100); // Sleep for a bit to wait for serial data.
+      if ( Serial.available() != 2 ) {
+        Serial.println("Error: expected two bytes to follow 'G' command.");
+      } else {
+        // Should do some validation here to make sure the values
+        // are between 0-180
+        FRONT_GATE_OPEN = Serial.read();
+        FRONT_GATE_CLOSE = Serial.read();
+        EEPROM.write(FGO_ADDRESS, FRONT_GATE_OPEN);
+        EEPROM.write(FGC_ADDRESS, FRONT_GATE_CLOSE);
+        Serial.println("G");
+      }
+    }
+    else if ( serialCmd == 'g' ) {
+      delay(100); // Sleep for a bit to wait for serial data.
+      if ( Serial.available() != 2 ) {
+        Serial.println("Error: expected two bytes to follow 'g' command.");
+      } else {
+        // Should do some validation here to make sure the values
+        // are between 0-180
+        BACK_GATE_OPEN = Serial.read();
+        BACK_GATE_CLOSE = Serial.read();
+        EEPROM.write(BGO_ADDRESS, BACK_GATE_OPEN);
+        EEPROM.write(BGC_ADDRESS, BACK_GATE_CLOSE);
+        Serial.println("g");
+      }
+    }
     else if ( serialCmd == 'V' ) {
-      Serial.println("Arduino Relay - version 1.1");
+      Serial.println("Arduino Relay - version 1.2");
     }
     else {
       Serial.print("Command '");
