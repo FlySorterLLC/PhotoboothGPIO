@@ -4,9 +4,49 @@
 /*******************************
  * Revision hisory
  * 
+ * 1.4 Added subroutines to modularize and reuse code.
  * 1.3 Added motor, switches, and valve switches on turntable board.
  * 
  *******************************/
+
+/* Commands:
+
+A - all LED outputs enabled
+O - all LED outputs disabled
+U - enable upper camera foreground LEDs
+u - enable upper camera background LEDs
+L - enable lower camera foreground LEDs
+l - enable lower camera background LEDs
+
+S - step one vane forward
+s - disable stepper
+
+P - turn on air pump
+p - turn off air pump
+
+F - open front gate
+f - close front gate
+
+B - open back gate
+b - close back gate
+
+G?? - load front gate set points (? are each bytes that represent angles from 0-180, open set point first, then close)
+g?? - load back gate set points (? are each bytes that represent angles from 0-180, open set point first, then close)
+
+H - home turntable motor
+1 - move turntable to path/vial 1
+2 - move turntable to path/vial 2
+3 - move turntable to path/vial 3
+
+0 - turn off all vacuum solenoid valves
+q - turn on vacuum solenoid 1
+w - turn on vacuum solenoid 2
+e - turn on vacuum solenoid 3
+
+V - version
+I - info
+
+*/
 
 int UPPER_CAM_FG = 9;
 //int UPPER_CAM_BG = 10;
@@ -30,6 +70,8 @@ int SWITCH0 = A4;
 int SWITCH1 = A5;
 int SWITCH2 = 8;
 int SWITCH3 = 2;
+
+int switches[4] = { SWITCH0, SWITCH1, SWITCH2, SWITCH3 };
 
 int MOTOR_IN1 = 13;
 int MOTOR_IN2 = 4;
@@ -113,48 +155,94 @@ void setup() {
 
 }
 
-/* Commands:
+int homeMotor() {
+  int homed = 0;
+  digitalWrite(MOTOR_IN1, LOW);
+  digitalWrite(MOTOR_IN2, HIGH);
+  analogWrite(MOTOR_PWM, MOTOR_SPEED);
+  unsigned long startTime = millis();
+  while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+    if ( digitalRead(SWITCH0) == HIGH ) {
+      homed=1;
+      break;
+    }
+  }
+  digitalWrite(MOTOR_IN1, HIGH);
+  digitalWrite(MOTOR_IN2, HIGH);
+  analogWrite(MOTOR_PWM, 0);
+  return homed;
 
-A - all LED outputs enabled
-O - all LED outputs disabled
-U - enable upper camera foreground LEDs
-u - enable upper camera background LEDs
-L - enable lower camera foreground LEDs
-l - enable lower camera background LEDs
+}
 
-S - step one vane forward
-s - disable stepper
+int gotoPosition(int desiredPosition, int currentPosition) {
+  int there = 0, past = 0;
+  if (( desiredPosition < 1 ) || ( desiredPosition > 3)) {
+    return 0;
+  }
+  if ( desiredPosition == currentPosition ) {
+    return 1;
+  } else if ( desiredPosition > currentPosition ) {
+    // This is the easy direction - drive directly to desired switch
+    digitalWrite(MOTOR_IN1, LOW);
+    digitalWrite(MOTOR_IN2, HIGH);
+    analogWrite(MOTOR_PWM, MOTOR_SPEED);
+    unsigned long startTime = millis();
+    while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+      if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+        there=1;
+        break;
+      }
+    }
+    digitalWrite(MOTOR_IN1, HIGH);
+    digitalWrite(MOTOR_IN2, HIGH);
+    analogWrite(MOTOR_PWM, 0);
+    return there;
+  } else if ( desiredPosition < currentPosition ) {
+    // The harder direction - go past the switch and then back
+    digitalWrite(MOTOR_IN1, HIGH);
+    digitalWrite(MOTOR_IN2, LOW);
+    analogWrite(MOTOR_PWM, MOTOR_SPEED);
+    unsigned long startTime = millis();
+    while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+      if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+        there=1;
+        break;
+      }
+    }
+    if ( there ) {
+      delay(10);
+      while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+        if ( digitalRead(switches[desiredPosition]) == LOW ) {
+          past=1;
+          there=0;
+          break;
+        }
+      }
+    }
+    if ( past ) {
+      delay(10);
+      digitalWrite(MOTOR_IN1, LOW);
+      digitalWrite(MOTOR_IN2, HIGH);
+      while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+        if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+          there=1;
+          break;
+        }
+      }      
+    }
+    digitalWrite(MOTOR_IN1, HIGH);
+    digitalWrite(MOTOR_IN2, HIGH);
+    analogWrite(MOTOR_PWM, 0);
+    return (there && past);
 
-P - turn on air pump
-p - turn off air pump
+  }
+}
 
-F - open front gate
-f - close front gate
-
-B - open back gate
-b - close back gate
-
-G?? - load front gate set points (? are each bytes that represent angles from 0-180, open set point first, then close)
-g?? - load back gate set points (? are each bytes that represent angles from 0-180, open set point first, then close)
-
-H - home turntable motor
-1 - move turntable to path/vial 1
-2 - move turntable to path/vial 2
-3 - move turntable to path/vial 3
-
-0 - turn off all vacuum solenoid valves
-q - turn on vacuum solenoid 1
-w - turn on vacuum solenoid 2
-e - turn on vacuum solenoid 3
-
-V - version
-I - info
-
-*/
 void loop() {
   
   static int dir = 0;
   static int pos = -1;
+  static int homed = 0;
   
   while ( Serial.available() > 0 ) {
     char serialCmd = Serial.read();
@@ -255,114 +343,26 @@ void loop() {
     }
     else if ( serialCmd == 'H' ) {
       // Home motor
-      int homed = 0;
-      digitalWrite(MOTOR_IN1, HIGH);
-      digitalWrite(MOTOR_IN2, LOW);
-      analogWrite(MOTOR_PWM, MOTOR_SPEED);
-      unsigned long startTime = millis();
-      while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-        if ( digitalRead(SWITCH0) == HIGH ) {
-          homed=1;
-          break;
-        }
-      }
-      digitalWrite(MOTOR_IN1, HIGH);
-      digitalWrite(MOTOR_IN2, HIGH);
-      analogWrite(MOTOR_PWM, 0);
+      homed = homeMotor();
       if ( homed == 1 ) {
-        pos = 0;
+        pos = 4;
         Serial.println("H");
       } else {
         Serial.println("Failed to home motor");
       }
     }
-    else if ( serialCmd == '1' ) {
-      int there = 0;
-      // Drive motor to slot #1
-      if ( pos < 1 ) {
-        digitalWrite(MOTOR_IN1, LOW);
-        digitalWrite(MOTOR_IN2, HIGH);
-      } else {
-        digitalWrite(MOTOR_IN1, HIGH);
-        digitalWrite(MOTOR_IN2, LOW);
-      }
-      analogWrite(MOTOR_PWM, MOTOR_SPEED);
-      unsigned long startTime = millis();
-      while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-        if ( digitalRead(SWITCH1) == HIGH ) {
-          there=1;
-          break;
-        }
-      }
-      digitalWrite(MOTOR_IN1, HIGH);
-      digitalWrite(MOTOR_IN2, HIGH);
-      analogWrite(MOTOR_PWM, 0);
-      if ( there == 1 ) {
-        pos = 1;
-        Serial.println("1");
-      } else {
-        Serial.println("Failed to position motor");
-      }
-
-    }
-    else if ( serialCmd == '2' ) {
-      int there = 0;
-      // Drive motor to slot #2
-      if ( pos < 2 ) {
-        digitalWrite(MOTOR_IN1, LOW);
-        digitalWrite(MOTOR_IN2, HIGH);
-      } else {
-        digitalWrite(MOTOR_IN1, HIGH);
-        digitalWrite(MOTOR_IN2, LOW);
-      }
-      analogWrite(MOTOR_PWM, MOTOR_SPEED);
-      unsigned long startTime = millis();
-      while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-        if ( digitalRead(SWITCH2) == HIGH ) {
-          there=1;
-          break;
-        }
-      }
-      digitalWrite(MOTOR_IN1, HIGH);
-      digitalWrite(MOTOR_IN2, HIGH);
-      analogWrite(MOTOR_PWM, 0);
-      if ( there == 1 ) {
-        pos = 2;
-        Serial.println("2");
-      } else {
-        Serial.println("Failed to position motor");
-      }
-    }
-    else if ( serialCmd == '3' ) {
-      int there = 0;
-      // Drive motor to slot #3
-      if ( pos < 3 ) {
-        digitalWrite(MOTOR_IN1, LOW);
-        digitalWrite(MOTOR_IN2, HIGH);
-      } else {
-        digitalWrite(MOTOR_IN1, HIGH);
-        digitalWrite(MOTOR_IN2, LOW);
-      }
-      analogWrite(MOTOR_PWM, MOTOR_SPEED);
-      unsigned long startTime = millis();
-      while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-        if ( digitalRead(SWITCH3) == HIGH ) {
-          there=1;
-          break;
-        }
-      }
-      digitalWrite(MOTOR_IN1, HIGH);
-      digitalWrite(MOTOR_IN2, HIGH);
-      analogWrite(MOTOR_PWM, 0);
-      if ( there == 1 ) {
-        pos = 3;
-        Serial.println("3");
+    else if ( serialCmd >= '1' && serialCmd <= '3' ) {
+      if ( homed == 0 ) { Serial.println("Not homed."); continue; }
+      int r = gotoPosition(serialCmd-'0', pos);
+      if ( r == 1 ) {
+        pos = serialCmd-'0';
+        Serial.println(serialCmd);
       } else {
         Serial.println("Failed to position motor");
       }
     }
     else if ( serialCmd == '0' ) {
-      // turn off all solenoid valves
+      // turn off all valves
       digitalWrite(VALVE1_ENABLE, LOW);
       digitalWrite(VALVE2_ENABLE, LOW);
       digitalWrite(VALVE3_ENABLE, LOW);
@@ -384,13 +384,15 @@ void loop() {
       Serial.println("e");
     }
     else if ( serialCmd == 'V' ) {
-      Serial.println("Arduino Relay - version 1.3");
+      Serial.println("Arduino Relay - version 1.4");
     }
     else if ( serialCmd == 'I' ) {
       Serial.print("FGO: "); Serial.println(FRONT_GATE_OPEN);
       Serial.print("FGC: "); Serial.println(FRONT_GATE_CLOSE);
       Serial.print("BGO: "); Serial.println(BACK_GATE_OPEN);
       Serial.print("BGC: "); Serial.println(BACK_GATE_CLOSE);
+      Serial.print("Homed: "); Serial.println(homed);
+      Serial.print("Current position: "); Serial.println(pos);
       Serial.print("Switch 0: "); Serial.println(digitalRead(SWITCH0));
       Serial.print("Switch 1: "); Serial.println(digitalRead(SWITCH1));
       Serial.print("Switch 2: "); Serial.println(digitalRead(SWITCH2));
