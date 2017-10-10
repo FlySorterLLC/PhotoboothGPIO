@@ -1,9 +1,12 @@
+#include "Arduino.h"
 #include <Servo.h>
 #include <EEPROM.h>
+#include "pins.h"
 
 /*******************************
  * Revision hisory
  * 
+ * 1.5 Switch to AT90USB1286-based PCB (instead of Arduino Nano)
  * 1.4 Added subroutines to modularize and reuse code.
  * 1.3 Added motor, switches, and valve switches on turntable board.
  * 
@@ -18,8 +21,8 @@ u - enable upper camera background LEDs
 L - enable lower camera foreground LEDs
 l - enable lower camera background LEDs
 
-S - step one vane forward
-s - disable stepper
+S - position vanes for UPPER camera
+s - position vanes for LOWER camera
 
 P - turn on air pump
 p - turn off air pump
@@ -48,43 +51,14 @@ I - info
 
 */
 
-int UPPER_CAM_FG = 9;
-//int UPPER_CAM_BG = 10;
-int LOWER_CAM_FG = 11;
-//int LOWER_CAM_BG = 12;
-
-int STEPPER_ENABLE = A0;
-int STEPPER_STEP = A1;
-int STEPPER_DIR = A2;
-
-int PUMP_ENABLE = 7;
-
-int SERVO1 = 5;
-int SERVO2 = 6;
-
-int VALVE1_ENABLE = A3;
-int VALVE2_ENABLE = 12;
-int VALVE3_ENABLE = 10;
-
-int SWITCH0 = A4;
-int SWITCH1 = A5;
-int SWITCH2 = 8;
-int SWITCH3 = 2;
-
-int switches[4] = { SWITCH0, SWITCH1, SWITCH2, SWITCH3 };
-
-int MOTOR_IN1 = 13;
-int MOTOR_IN2 = 4;
-int MOTOR_PWM = 3;
+int switches[4] = { SEL_SW_HOME, SEL_SW_1, SEL_SW_2, SEL_SW_3 };
 
 Servo pbServo1, pbServo2;
 
 byte FRONT_GATE_OPEN=90, FRONT_GATE_CLOSE=90, BACK_GATE_OPEN=90, BACK_GATE_CLOSE=90;
 
-#define STEP_TIME 1000
-#define STEPS_PER_VANE  267 // = 8 microsteps per step * 60 deg / (1.8 degrees per step)
-
-#define MOTOR_SPEED 255 // out of 255
+#define VANE_MOTOR_SPEED 88 // out of 255
+#define SELECT_MOTOR_SPEED 255 // out of 255
 #define MAX_MOTOR_TIME 2000 // Milliseconds before motor moves time out
 
 #define FGO_ADDRESS  0x02
@@ -96,52 +70,54 @@ void setup() {
 
   Serial.begin(9600); //Open Serial connection for data logging & communication
 
-  pinMode(UPPER_CAM_FG, OUTPUT);
-  //pinMode(UPPER_CAM_BG, OUTPUT);
-  pinMode(LOWER_CAM_FG, OUTPUT);
-  //pinMode(LOWER_CAM_BG, OUTPUT);
+  pinMode(PHOTOGATE1, INPUT_PULLUP);
+  pinMode(PHOTOGATE2, INPUT_PULLUP);
 
-  digitalWrite(UPPER_CAM_FG, LOW);
-  //digitalWrite(UPPER_CAM_BG, LOW);
-  digitalWrite(LOWER_CAM_FG, LOW);
-  //digitalWrite(LOWER_CAM_BG, LOW);
+  pinMode(LOWER_ENABLE1, OUTPUT);
+  pinMode(LOWER_ENABLE2, OUTPUT);
+  pinMode(UPPER_ENABLE1, OUTPUT);
+  pinMode(UPPER_ENABLE2, OUTPUT);
 
-  pinMode(STEPPER_ENABLE, OUTPUT);
-  pinMode(STEPPER_STEP, OUTPUT);
-  pinMode(STEPPER_DIR, OUTPUT);
-  
-  digitalWrite(STEPPER_ENABLE, HIGH);
-  digitalWrite(STEPPER_STEP, LOW);
-  digitalWrite(STEPPER_DIR, LOW);
-  
+  digitalWrite(LOWER_ENABLE1, HIGH);
+  digitalWrite(LOWER_ENABLE2, HIGH);
+  digitalWrite(UPPER_ENABLE1, HIGH);
+  digitalWrite(UPPER_ENABLE2, HIGH);
+
   pinMode(PUMP_ENABLE, OUTPUT);
-  
   digitalWrite(PUMP_ENABLE, LOW);
 
-  pbServo1.attach(SERVO1);
-  pbServo2.attach(SERVO2);
+  pinMode(PAGER_ENABLE, OUTPUT);
+  digitalWrite(PAGER_ENABLE, LOW);
 
-  pinMode(VALVE1_ENABLE, OUTPUT);
-  pinMode(VALVE2_ENABLE, OUTPUT);
-  pinMode(VALVE3_ENABLE, OUTPUT);
+  pbServo1.attach(INPUT_SERVO);
+  pbServo2.attach(OUTPUT_SERVO);
 
-  digitalWrite(VALVE1_ENABLE, LOW);
-  digitalWrite(VALVE2_ENABLE, LOW);
-  digitalWrite(VALVE3_ENABLE, LOW);
+  pinMode(SOL1_ENABLE, OUTPUT);
+  pinMode(SOL2_ENABLE, OUTPUT);
+  pinMode(SOL3_ENABLE, OUTPUT);
+  digitalWrite(SOL1_ENABLE, LOW);
+  digitalWrite(SOL2_ENABLE, LOW);
+  digitalWrite(SOL3_ENABLE, LOW);
 
-  pinMode(SWITCH0, INPUT_PULLUP);
-  pinMode(SWITCH1, INPUT_PULLUP);
-  pinMode(SWITCH2, INPUT_PULLUP);
-  pinMode(SWITCH3, INPUT_PULLUP);
+  pinMode(SEL_SW_HOME, INPUT_PULLUP);
+  pinMode(SEL_SW_1, INPUT_PULLUP);
+  pinMode(SEL_SW_2, INPUT_PULLUP);
+  pinMode(SEL_SW_3, INPUT_PULLUP);
 
-  pinMode(MOTOR_IN1, OUTPUT);
-  pinMode(MOTOR_IN2, OUTPUT);
-  pinMode(MOTOR_PWM, OUTPUT);
+  pinMode(VANE_IN1, OUTPUT);
+  pinMode(VANE_IN2, OUTPUT);
+  pinMode(VANE_PWM, OUTPUT);
+  digitalWrite(VANE_IN1, HIGH);
+  digitalWrite(VANE_IN2, HIGH);
+  analogWrite(VANE_PWM, 0);
 
-  digitalWrite(MOTOR_IN1, HIGH);
-  digitalWrite(MOTOR_IN2, HIGH);
-  analogWrite(MOTOR_PWM, 0);
-  
+  pinMode(SELECT_IN1, OUTPUT);
+  pinMode(SELECT_IN2, OUTPUT);
+  pinMode(SELECT_PWM, OUTPUT);
+  digitalWrite(SELECT_IN1, HIGH);
+  digitalWrite(SELECT_IN2, HIGH);
+  analogWrite(SELECT_PWM, 0);
+
   // Should do some validation here to make sure the values
   // are between 0-180
 
@@ -155,21 +131,40 @@ void setup() {
 
 }
 
-int homeMotor() {
-  int homed = 0;
-  digitalWrite(MOTOR_IN1, LOW);
-  digitalWrite(MOTOR_IN2, HIGH);
-  analogWrite(MOTOR_PWM, MOTOR_SPEED);
+int advanceVanes( int upDown ) {
+  int whichPhoto = upDown ? PHOTOGATE1 : PHOTOGATE2, timedOut = 0;
+  // Start motor spinning
+  digitalWrite(VANE_IN1, LOW);
+  digitalWrite(VANE_IN2, HIGH);
+  analogWrite(VANE_PWM, VANE_MOTOR_SPEED);
   unsigned long startTime = millis();
   while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-    if ( digitalRead(SWITCH0) == HIGH ) {
+    if ( digitalRead(whichPhoto) == LOW ) {
+      break;
+    }
+  }
+  analogWrite(VANE_PWM, 0);
+  digitalWrite(VANE_IN1, HIGH);
+  digitalWrite(VANE_IN2, HIGH);
+
+  return timedOut;
+}
+
+int homeSelectMotor() {
+  int homed = 0;
+  digitalWrite(SELECT_IN1, LOW);
+  digitalWrite(SELECT_IN2, HIGH);
+  analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
+  unsigned long startTime = millis();
+  while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+    if ( digitalRead(SEL_SW_HOME) == HIGH ) {
       homed=1;
       break;
     }
   }
-  digitalWrite(MOTOR_IN1, HIGH);
-  digitalWrite(MOTOR_IN2, HIGH);
-  analogWrite(MOTOR_PWM, 0);
+  digitalWrite(SELECT_IN1, HIGH);
+  digitalWrite(SELECT_IN2, HIGH);
+  analogWrite(SELECT_PWM, 0);
   return homed;
 
 }
@@ -183,9 +178,9 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     return 1;
   } else if ( desiredPosition > currentPosition ) {
     // This is the easy direction - drive directly to desired switch
-    digitalWrite(MOTOR_IN1, LOW);
-    digitalWrite(MOTOR_IN2, HIGH);
-    analogWrite(MOTOR_PWM, MOTOR_SPEED);
+    digitalWrite(SELECT_IN1, LOW);
+    digitalWrite(SELECT_IN2, HIGH);
+    analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
     unsigned long startTime = millis();
     while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
       if ( digitalRead(switches[desiredPosition]) == HIGH ) {
@@ -193,15 +188,15 @@ int gotoPosition(int desiredPosition, int currentPosition) {
         break;
       }
     }
-    digitalWrite(MOTOR_IN1, HIGH);
-    digitalWrite(MOTOR_IN2, HIGH);
-    analogWrite(MOTOR_PWM, 0);
+    digitalWrite(SELECT_IN1, HIGH);
+    digitalWrite(SELECT_IN2, HIGH);
+    analogWrite(SELECT_PWM, 0);
     return there;
   } else if ( desiredPosition < currentPosition ) {
     // The harder direction - go past the switch and then back
-    digitalWrite(MOTOR_IN1, HIGH);
-    digitalWrite(MOTOR_IN2, LOW);
-    analogWrite(MOTOR_PWM, MOTOR_SPEED);
+    digitalWrite(SELECT_IN1, HIGH);
+    digitalWrite(SELECT_IN2, LOW);
+    analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
     unsigned long startTime = millis();
     while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
       if ( digitalRead(switches[desiredPosition]) == HIGH ) {
@@ -221,8 +216,8 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     }
     if ( past ) {
       delay(10);
-      digitalWrite(MOTOR_IN1, LOW);
-      digitalWrite(MOTOR_IN2, HIGH);
+      digitalWrite(SELECT_IN1, LOW);
+      digitalWrite(SELECT_IN2, HIGH);
       while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
         if ( digitalRead(switches[desiredPosition]) == HIGH ) {
           there=1;
@@ -230,64 +225,67 @@ int gotoPosition(int desiredPosition, int currentPosition) {
         }
       }      
     }
-    digitalWrite(MOTOR_IN1, HIGH);
-    digitalWrite(MOTOR_IN2, HIGH);
-    analogWrite(MOTOR_PWM, 0);
+    digitalWrite(SELECT_IN1, HIGH);
+    digitalWrite(SELECT_IN2, HIGH);
+    analogWrite(SELECT_PWM, 0);
     return (there && past);
 
   }
+  return 0;
 }
 
 void loop() {
   
-  static int dir = 0;
   static int pos = -1;
   static int homed = 0;
   
   while ( Serial.available() > 0 ) {
     char serialCmd = Serial.read();
     if ( serialCmd == 'A') {
-      digitalWrite(UPPER_CAM_FG, HIGH);
-      //digitalWrite(UPPER_CAM_BG, HIGH);
-      digitalWrite(LOWER_CAM_FG, HIGH);
-      //digitalWrite(LOWER_CAM_BG, HIGH);
+      digitalWrite(UPPER_ENABLE1, LOW);
+      digitalWrite(UPPER_ENABLE2, LOW);
+      digitalWrite(LOWER_ENABLE1, LOW);
+      digitalWrite(LOWER_ENABLE2, LOW);
       Serial.println("A");
     }
     else if ( serialCmd == 'O') {
-      digitalWrite(UPPER_CAM_FG, LOW);
-      //digitalWrite(UPPER_CAM_BG, LOW);
-      digitalWrite(LOWER_CAM_FG, LOW);
-      //digitalWrite(LOWER_CAM_BG, LOW);
+      digitalWrite(UPPER_ENABLE1, HIGH);
+      digitalWrite(UPPER_ENABLE2, HIGH);
+      digitalWrite(LOWER_ENABLE1, HIGH);
+      digitalWrite(LOWER_ENABLE2, HIGH);
       Serial.println("O");
     }
     else if ( serialCmd == 'U') {
-      digitalWrite(UPPER_CAM_FG, HIGH);
+      digitalWrite(UPPER_ENABLE1, LOW);
       Serial.println("U");
     }
     else if ( serialCmd == 'u') {
-      //digitalWrite(UPPER_CAM_BG, HIGH);
+      digitalWrite(UPPER_ENABLE2, LOW);
       Serial.println("u");
     }
     else if ( serialCmd == 'L') {
-      digitalWrite(LOWER_CAM_FG, HIGH);
+      digitalWrite(LOWER_ENABLE1, LOW);
       Serial.println("L");
     }
     else if ( serialCmd == 'l') {
-      //digitalWrite(LOWER_CAM_BG, HIGH);
+      digitalWrite(LOWER_ENABLE2, LOW);
       Serial.println("l");
     }
     else if ( serialCmd == 'S' ) {
-      dir = !dir;
-      digitalWrite(STEPPER_DIR, dir); delay(10);
-      digitalWrite(STEPPER_ENABLE, LOW); delay(10);
-      for (int i=0; i < STEPS_PER_VANE; i++ ) {
-        digitalWrite(STEPPER_STEP, HIGH); delayMicroseconds(STEP_TIME); digitalWrite(STEPPER_STEP, LOW); delayMicroseconds(STEP_TIME); 
+      int r = advanceVanes(0);
+      if ( r ) {
+        Serial.println("Timeout advancing vanes.");
+      } else {
+        Serial.println("S");
       }
-      Serial.println("S");
     }
     else if ( serialCmd == 's' ) {
-      digitalWrite(STEPPER_ENABLE, HIGH);
-      Serial.println("s");
+      int r = advanceVanes(1);
+      if ( r ) {
+        Serial.println("Timeout advancing vanes.");
+      } else {
+        Serial.println("s");
+      }
     }
     else if ( serialCmd == 'P' ) {
       digitalWrite(PUMP_ENABLE, HIGH);
@@ -343,7 +341,7 @@ void loop() {
     }
     else if ( serialCmd == 'H' ) {
       // Home motor
-      homed = homeMotor();
+      homed = homeSelectMotor();
       if ( homed == 1 ) {
         pos = 4;
         Serial.println("H");
@@ -363,28 +361,28 @@ void loop() {
     }
     else if ( serialCmd == '0' ) {
       // turn off all valves
-      digitalWrite(VALVE1_ENABLE, LOW);
-      digitalWrite(VALVE2_ENABLE, LOW);
-      digitalWrite(VALVE3_ENABLE, LOW);
+      digitalWrite(SOL1_ENABLE, LOW);
+      digitalWrite(SOL2_ENABLE, LOW);
+      digitalWrite(SOL3_ENABLE, LOW);
       Serial.println("0");
     }
     else if ( serialCmd == 'q' ) {
       // turn on valve #1
-      digitalWrite(VALVE1_ENABLE, HIGH);
+      digitalWrite(SOL1_ENABLE, HIGH);
       Serial.println("q");
     }
     else if ( serialCmd == 'w' ) {
       // turn on valve #2
-      digitalWrite(VALVE2_ENABLE, HIGH);
+      digitalWrite(SOL3_ENABLE, HIGH);
       Serial.println("w");
     }
     else if ( serialCmd == 'e' ) {
       // turn on valve #3
-      digitalWrite(VALVE3_ENABLE, HIGH);
+      digitalWrite(SOL3_ENABLE, HIGH);
       Serial.println("e");
     }
     else if ( serialCmd == 'V' ) {
-      Serial.println("Arduino Relay - version 1.4");
+      Serial.println("Arduino Relay - version 1.5");
     }
     else if ( serialCmd == 'I' ) {
       Serial.print("FGO: "); Serial.println(FRONT_GATE_OPEN);
@@ -393,10 +391,12 @@ void loop() {
       Serial.print("BGC: "); Serial.println(BACK_GATE_CLOSE);
       Serial.print("Homed: "); Serial.println(homed);
       Serial.print("Current position: "); Serial.println(pos);
-      Serial.print("Switch 0: "); Serial.println(digitalRead(SWITCH0));
-      Serial.print("Switch 1: "); Serial.println(digitalRead(SWITCH1));
-      Serial.print("Switch 2: "); Serial.println(digitalRead(SWITCH2));
-      Serial.print("Switch 3: "); Serial.println(digitalRead(SWITCH3));
+      Serial.print("Switch 0: "); Serial.println(digitalRead(SEL_SW_HOME));
+      Serial.print("Switch 1: "); Serial.println(digitalRead(SEL_SW_1));
+      Serial.print("Switch 2: "); Serial.println(digitalRead(SEL_SW_2));
+      Serial.print("Switch 3: "); Serial.println(digitalRead(SEL_SW_3));
+      Serial.print("Vane photogate 1: "); Serial.println(digitalRead(PHOTOGATE1));
+      Serial.print("Vane photogate 2: "); Serial.println(digitalRead(PHOTOGATE2));
     }
     else {
       Serial.print("Command '");
