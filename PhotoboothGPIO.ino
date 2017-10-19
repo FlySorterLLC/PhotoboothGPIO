@@ -57,7 +57,7 @@ Servo pbServo1, pbServo2;
 
 byte FRONT_GATE_OPEN=90, FRONT_GATE_CLOSE=90, BACK_GATE_OPEN=90, BACK_GATE_CLOSE=90;
 
-#define VANE_MOTOR_SPEED 88 // out of 255
+#define VANE_MOTOR_SPEED 150 // out of 255
 #define SELECT_MOTOR_SPEED 255 // out of 255
 #define MAX_MOTOR_TIME 2000 // Milliseconds before motor moves time out
 
@@ -132,9 +132,14 @@ void setup() {
 }
 
 int advanceVanes( int upDown ) {
-  int whichPhoto = upDown ? PHOTOGATE1 : PHOTOGATE2, timedOut = 0;
+  int whichPhoto, timedOut = 1;
+  if ( upDown == HIGH ) {
+    whichPhoto = PHOTOGATE1;
+  } else {
+    whichPhoto = PHOTOGATE2;
+  }
   // Start motor spinning
-  digitalWrite(VANE_IN1, LOW);
+  digitalWrite(VANE_IN1, LOW); 
   digitalWrite(VANE_IN2, HIGH);
   analogWrite(VANE_PWM, VANE_MOTOR_SPEED);
   unsigned long startTime = millis();
@@ -143,9 +148,19 @@ int advanceVanes( int upDown ) {
       break;
     }
   }
-  analogWrite(VANE_PWM, 0);
+  digitalWrite(VANE_IN1, HIGH);
+  delay(25);
+  analogWrite(VANE_PWM, 50);
+  digitalWrite(VANE_IN2, LOW);
+  while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+    if ( digitalRead(whichPhoto) == HIGH ) {
+      timedOut = 0;
+      break;
+    }
+  }
   digitalWrite(VANE_IN1, HIGH);
   digitalWrite(VANE_IN2, HIGH);
+  analogWrite(VANE_PWM, 0);
 
   return timedOut;
 }
@@ -177,7 +192,6 @@ int gotoPosition(int desiredPosition, int currentPosition) {
   if ( desiredPosition == currentPosition ) {
     return 1;
   } else if ( desiredPosition > currentPosition ) {
-    // This is the easy direction - drive directly to desired switch
     digitalWrite(SELECT_IN1, LOW);
     digitalWrite(SELECT_IN2, HIGH);
     analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
@@ -188,22 +202,7 @@ int gotoPosition(int desiredPosition, int currentPosition) {
         break;
       }
     }
-    digitalWrite(SELECT_IN1, HIGH);
-    digitalWrite(SELECT_IN2, HIGH);
-    analogWrite(SELECT_PWM, 0);
-    return there;
-  } else if ( desiredPosition < currentPosition ) {
-    // The harder direction - go past the switch and then back
-    digitalWrite(SELECT_IN1, HIGH);
-    digitalWrite(SELECT_IN2, LOW);
-    analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
-    unsigned long startTime = millis();
-    while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-      if ( digitalRead(switches[desiredPosition]) == HIGH ) {
-        there=1;
-        break;
-      }
-    }
+    
     if ( there ) {
       delay(10);
       while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
@@ -216,8 +215,8 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     }
     if ( past ) {
       delay(10);
-      digitalWrite(SELECT_IN1, LOW);
-      digitalWrite(SELECT_IN2, HIGH);
+      digitalWrite(SELECT_IN1, HIGH);
+      digitalWrite(SELECT_IN2, LOW);
       while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
         if ( digitalRead(switches[desiredPosition]) == HIGH ) {
           there=1;
@@ -229,7 +228,22 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     digitalWrite(SELECT_IN2, HIGH);
     analogWrite(SELECT_PWM, 0);
     return (there && past);
-
+  
+  } else if ( desiredPosition < currentPosition ) {
+    digitalWrite(SELECT_IN1, HIGH);
+    digitalWrite(SELECT_IN2, LOW);
+    analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
+    unsigned long startTime = millis();
+    while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
+      if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+        there=1;
+        break;
+      }
+    }
+    digitalWrite(SELECT_IN1, HIGH);
+    digitalWrite(SELECT_IN2, HIGH);
+    analogWrite(SELECT_PWM, 0);
+    return (there);
   }
   return 0;
 }
@@ -373,7 +387,7 @@ void loop() {
     }
     else if ( serialCmd == 'w' ) {
       // turn on valve #2
-      digitalWrite(SOL3_ENABLE, HIGH);
+      digitalWrite(SOL2_ENABLE, HIGH);
       Serial.println("w");
     }
     else if ( serialCmd == 'e' ) {
