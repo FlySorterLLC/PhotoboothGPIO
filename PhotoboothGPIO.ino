@@ -60,6 +60,7 @@ byte FRONT_GATE_OPEN=90, FRONT_GATE_CLOSE=90, BACK_GATE_OPEN=90, BACK_GATE_CLOSE
 #define VANE_MOTOR_SPEED 150 // out of 255
 #define SELECT_MOTOR_SPEED 255 // out of 255
 #define MAX_MOTOR_TIME 2000 // Milliseconds before motor moves time out
+#define DEBOUNCE_COUNT 5
 
 #define FGO_ADDRESS  0x02
 #define FGC_ADDRESS  0x03
@@ -171,8 +172,12 @@ int homeSelectMotor() {
   digitalWrite(SELECT_IN2, HIGH);
   analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
   unsigned long startTime = millis();
+  int switchCount = 0;
   while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
     if ( digitalRead(SEL_SW_HOME) == HIGH ) {
+      switchCount++;
+    }
+    if ( switchCount == DEBOUNCE_COUNT ) {
       homed=1;
       break;
     }
@@ -186,6 +191,7 @@ int homeSelectMotor() {
 
 int gotoPosition(int desiredPosition, int currentPosition) {
   int there = 0, past = 0;
+  int switchCount = 0;
   if (( desiredPosition < 1 ) || ( desiredPosition > 3)) {
     return 0;
   }
@@ -198,7 +204,12 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     unsigned long startTime = millis();
     while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
       if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+        switchCount++;
+      }
+      if ( switchCount == DEBOUNCE_COUNT ) {
         there=1;
+        past=1;
+        switchCount = 0;
         break;
       }
     }
@@ -207,8 +218,12 @@ int gotoPosition(int desiredPosition, int currentPosition) {
       delay(10);
       while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
         if ( digitalRead(switches[desiredPosition]) == LOW ) {
+          switchCount++;
+        }
+        if ( switchCount == DEBOUNCE_COUNT ) {
           past=1;
           there=0;
+          switchCount = 0;
           break;
         }
       }
@@ -219,7 +234,11 @@ int gotoPosition(int desiredPosition, int currentPosition) {
       digitalWrite(SELECT_IN2, LOW);
       while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
         if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+          switchCount++;
+        }
+        if ( switchCount == DEBOUNCE_COUNT ) {
           there=1;
+          switchCount = 0;
           break;
         }
       }      
