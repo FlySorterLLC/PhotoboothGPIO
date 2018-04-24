@@ -473,7 +473,7 @@ void loop() {
       Serial.println("e");
     }
     else if ( serialCmd == 'V' ) {
-      Serial.println("Arduino Relay - version 1.5");
+      Serial.println("Arduino Relay - version 1.6");
     }
     else if ( serialCmd == 'I' ) {
       Serial.print("FGO: "); Serial.println(FRONT_GATE_OPEN);
