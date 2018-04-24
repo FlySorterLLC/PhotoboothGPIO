@@ -57,7 +57,16 @@ Servo pbServo1, pbServo2;
 
 byte FRONT_GATE_OPEN=90, FRONT_GATE_CLOSE=90, BACK_GATE_OPEN=90, BACK_GATE_CLOSE=90;
 
-#define VANE_MOTOR_SPEED 150 // out of 255
+#define VANE_MOTOR_SPEED_FAST 150 // out of 255
+#define VANE_MOTOR_SPEED_SLOW 50 // out of 255
+
+// for debouncing photogates (might need more than 1 consec. read, try it)
+#define PHOTOGATE_READS 1
+
+// arbitrary constants, should be enums
+#define VANE_DIR_FORWARD  1  
+#define VANE_DIR_REVERSE -1
+
 #define SELECT_MOTOR_SPEED 255 // out of 255
 #define MAX_MOTOR_TIME 2000 // Milliseconds before motor moves time out
 #define DEBOUNCE_COUNT 5
@@ -132,38 +141,87 @@ void setup() {
 
 }
 
-int advanceVanes( int upDown ) {
-  int whichPhoto, timedOut = 1;
-  if ( upDown == HIGH ) {
-    whichPhoto = PHOTOGATE1;
-  } else {
-    whichPhoto = PHOTOGATE2;
-  }
-  // Start motor spinning
-  digitalWrite(VANE_IN1, LOW); 
-  digitalWrite(VANE_IN2, HIGH);
-  analogWrite(VANE_PWM, VANE_MOTOR_SPEED);
-  unsigned long startTime = millis();
-  while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-    if ( digitalRead(whichPhoto) == LOW ) {
-      break;
-    }
-  }
-  digitalWrite(VANE_IN1, HIGH);
-  delay(25);
-  analogWrite(VANE_PWM, 50);
-  digitalWrite(VANE_IN2, LOW);
-  while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-    if ( digitalRead(whichPhoto) == HIGH ) {
-      timedOut = 0;
-      break;
-    }
-  }
-  digitalWrite(VANE_IN1, HIGH);
-  digitalWrite(VANE_IN2, HIGH);
-  analogWrite(VANE_PWM, 0);
+void vaneMotorCtrl(int dir, int pwm) {
 
-  return timedOut;
+  if (pwm == 0) {
+    digitalWrite(VANE_IN1, HIGH);
+    digitalWrite(VANE_IN2, HIGH);   
+  } else if (dir == VANE_DIR_FORWARD) {
+    digitalWrite(VANE_IN1, LOW);
+    digitalWrite(VANE_IN2, HIGH);
+  } else {
+    digitalWrite(VANE_IN1, HIGH);
+    digitalWrite(VANE_IN2, LOW);
+  }
+
+  analogWrite(VANE_PWM, pwm);
+  
+}
+
+// turns on vane motor and waits for state
+// if timeout, turns off motor and returns 1
+// if success, leaves motor on and returns 0
+int vaneMotorTimeout(int dir, int pwm, int whichPhoto, int desiredState) {
+
+  vaneMotorCtrl(dir, pwm);
+
+  unsigned long startTime = millis();
+  
+  int debounce_counter = 0;
+
+  while ( (millis() - startTime) < MAX_MOTOR_TIME ) {
+
+    int photoState = digitalRead(whichPhoto);
+    if (photoState == desiredState) {
+      debounce_counter += 1;
+      if (debounce_counter >= PHOTOGATE_READS) {
+        return 0;
+      }
+    } else {
+      debounce_counter = 0;
+    }
+    
+  }
+
+  vaneMotorCtrl(dir, 0);
+  return 1;
+
+}
+
+int advanceVanes( int upDown ) {
+  
+  int whichPhoto = (upDown == HIGH ? PHOTOGATE1 : PHOTOGATE2);
+  
+  int initPhotoState = digitalRead(whichPhoto);
+  
+  // Step 1) fast forward until we see falling edge
+  
+  // if photo is not yet high, run until we are high
+  if (initPhotoState == LOW) {
+    if (vaneMotorTimeout(VANE_DIR_FORWARD, VANE_MOTOR_SPEED_FAST, whichPhoto, HIGH)) {
+      return 1;
+    }
+  }
+
+  // now photo is high, wait for it to get low
+  if (vaneMotorTimeout(VANE_DIR_FORWARD, VANE_MOTOR_SPEED_FAST, whichPhoto, LOW)) {
+    return 1;
+  }
+
+  // Step 2) slow back until we see high value.
+  if (vaneMotorTimeout(VANE_DIR_REVERSE, VANE_MOTOR_SPEED_SLOW, whichPhoto, HIGH)) {
+    return 1;
+  }
+
+  // Step 3) slow forward until we see low value.
+  if (vaneMotorTimeout(VANE_DIR_FORWARD, VANE_MOTOR_SPEED_SLOW, whichPhoto, LOW)) {
+    return 1;
+  }
+
+  // need to turn off motor because vaneMotorTimeout leaves it on
+  vaneMotorCtrl(VANE_DIR_FORWARD, 0);
+  return 0;
+  
 }
 
 int homeSelectMotor() {
