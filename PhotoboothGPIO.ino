@@ -6,6 +6,7 @@
 /*******************************
  * Revision hisory
  * 
+ * 1.6 Fixed vane stepping code
  * 1.5 Switch to AT90USB1286-based PCB (instead of Arduino Nano)
  * 1.4 Added subroutines to modularize and reuse code.
  * 1.3 Added motor, switches, and valve switches on turntable board.
@@ -61,7 +62,7 @@ byte FRONT_GATE_OPEN=90, FRONT_GATE_CLOSE=90, BACK_GATE_OPEN=90, BACK_GATE_CLOSE
 #define VANE_MOTOR_SPEED_SLOW 50 // out of 255
 
 // for debouncing photogates (might need more than 1 consec. read, try it)
-#define PHOTOGATE_READS 1
+#define PHOTOGATE_READS 3
 
 // arbitrary constants, should be enums
 #define VANE_DIR_FORWARD  1  
@@ -189,11 +190,11 @@ int vaneMotorTimeout(int dir, int pwm, int whichPhoto, int desiredState) {
 }
 
 int advanceVanes( int upDown ) {
-  
+
   int whichPhoto = (upDown == HIGH ? PHOTOGATE1 : PHOTOGATE2);
   
   int initPhotoState = digitalRead(whichPhoto);
-  
+
   // Step 1) fast forward until we see falling edge
   
   // if photo is not yet high, run until we are high
@@ -363,18 +364,24 @@ void loop() {
       Serial.println("l");
     }
     else if ( serialCmd == 'S' ) {
+      //digitalWrite(PIN_A3, LOW);
       int r = advanceVanes(0);
       if ( r ) {
         Serial.println("Timeout advancing vanes.");
       } else {
+        //digitalWrite(PIN_A3, HIGH);
+        delay(1);
         Serial.println("S");
       }
     }
     else if ( serialCmd == 's' ) {
+      //digitalWrite(PIN_A3, LOW);
       int r = advanceVanes(1);
       if ( r ) {
         Serial.println("Timeout advancing vanes.");
       } else {
+        //digitalWrite(PIN_A3, HIGH);
+        delay(1);
         Serial.println("s");
       }
     }
