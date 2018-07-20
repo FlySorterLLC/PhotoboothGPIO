@@ -233,7 +233,7 @@ int homeSelectMotor() {
   unsigned long startTime = millis();
   int switchCount = 0;
   while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-    if ( digitalRead(SEL_SW_HOME) == HIGH ) {
+    if ( digitalRead(SEL_SW_HOME) == LOW ) {
       switchCount++;
     }
     if ( switchCount == DEBOUNCE_COUNT ) {
@@ -262,7 +262,7 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
     unsigned long startTime = millis();
     while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-      if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+      if ( digitalRead(switches[desiredPosition]) == LOW ) {
         switchCount++;
       }
       if ( switchCount == DEBOUNCE_COUNT ) {
@@ -276,7 +276,7 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     if ( there ) {
       delay(10);
       while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-        if ( digitalRead(switches[desiredPosition]) == LOW ) {
+        if ( digitalRead(switches[desiredPosition]) == HIGH ) {
           switchCount++;
         }
         if ( switchCount == DEBOUNCE_COUNT ) {
@@ -292,7 +292,7 @@ int gotoPosition(int desiredPosition, int currentPosition) {
       digitalWrite(SELECT_IN1, HIGH);
       digitalWrite(SELECT_IN2, LOW);
       while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-        if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+        if ( digitalRead(switches[desiredPosition]) == LOW ) {
           switchCount++;
         }
         if ( switchCount == DEBOUNCE_COUNT ) {
@@ -313,7 +313,7 @@ int gotoPosition(int desiredPosition, int currentPosition) {
     analogWrite(SELECT_PWM, SELECT_MOTOR_SPEED);
     unsigned long startTime = millis();
     while ( ( millis() - startTime ) < MAX_MOTOR_TIME ) {
-      if ( digitalRead(switches[desiredPosition]) == HIGH ) {
+      if ( digitalRead(switches[desiredPosition]) == LOW ) {
         there=1;
         break;
       }
