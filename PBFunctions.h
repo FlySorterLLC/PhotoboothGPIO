@@ -4,14 +4,14 @@
 
 enum {
   // Motor speeds / PWM values (out of 255)
-  VANE_MOTOR_SPEED = 255,
+  VANE_MOTOR_SPEED = 220,
   GATE_MOTOR_SPEED = 150,
   SELECT_MOTOR_SPEED = 150,
 
   // Durations / timeouts
   GATE_MOTOR_TIMEOUT_MS = 1000,
   SELECT_MOTOR_TIMEOUT_MS = 1000,
-  VANE_MOTOR_TIMEOUT_MS = 1000,
+  VANE_MOTOR_TIMEOUT_MS = 1500,
   VANE_MOTOR_REV_DELAY_MS = 200,
 
   // Counts
@@ -50,7 +50,7 @@ void setupPins();
 Status initialize();
 void motorsOff();
 void driveMotor(Motor m, MotorDirection d, int pwm);
-Status driveMotorUntil(Motor m, MotorDirection d, int pwm, int switchPin, boolean desiredState, int t);
+Status driveMotorUntil(Motor m, MotorDirection d, int pwm, int switchPin, boolean desiredState, int t, int r = SWITCH_DEBOUNCE_READS);
 
 Status driveGate(GatePosition g);
 Status driveVane(VaneChoice v);

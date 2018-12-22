@@ -95,15 +95,15 @@ void driveMotor(Motor m, MotorDirection d, int pwm) {
   
 }
 
-Status driveMotorUntil(Motor m, MotorDirection d, int pwm, int switchPin, boolean desiredState, int t) {
+Status driveMotorUntil(Motor m, MotorDirection d, int pwm, int switchPin, boolean desiredState, int t, int r) {
   unsigned long int startTime = millis();
   int switchReads = 0;
   boolean timeOut = false;
   
   driveMotor(m, d, pwm);
-  while ( switchReads < SWITCH_DEBOUNCE_READS ) {
-    delay(1);
-    if ( digitalRead(switchPin) == desiredState ) { switchReads++; }
+  while ( switchReads < r ) {
+    delayMicroseconds(100);
+    if ( digitalRead(switchPin) == desiredState ) { switchReads++;  }
     if ( millis() - startTime > t ) { timeOut = true; break; }
   }
   driveMotor(m, d, 0);
@@ -116,7 +116,11 @@ Status driveVane(VaneChoice v) {
 
   int switchPin = (v == VANE_UPPER) ? VANE_SW_1 : VANE_SW_2;
 
-  return driveMotorUntil(MOTOR_VANE, MOTOR_FWD, VANE_MOTOR_SPEED, switchPin, LOW, VANE_MOTOR_TIMEOUT_MS);
+  Status s = driveMotorUntil(MOTOR_VANE, MOTOR_FWD, VANE_MOTOR_SPEED, switchPin, LOW, VANE_MOTOR_TIMEOUT_MS, 1);
+  if ( s != SUCCESS ) { return s; }
+
+  delay(25);
+  return driveMotorUntil(MOTOR_VANE, MOTOR_REV, VANE_MOTOR_SPEED/2, switchPin, LOW, VANE_MOTOR_TIMEOUT_MS, 1);
 
 }
 

@@ -100,17 +100,17 @@ void loop() {
     else if ( serialCmd == 'S' ) {
       Status s = driveVane(VANE_UPPER);
       if ( s == SUCCESS ) {
-        Serial.println("Timeout advancing vanes.");
-      } else {
         Serial.println("S");
+      } else {
+        Serial.println("Timeout advancing vanes.");
       }
     }
     else if ( serialCmd == 's' ) {
       Status s = driveVane(VANE_LOWER);
       if ( s == SUCCESS ) {
-        Serial.println("Timeout advancing vanes.");
-      } else {
         Serial.println("s");
+      } else {
+        Serial.println("Timeout advancing vanes.");
       }
     }
     else if ( serialCmd == 'P' ) {
