@@ -5,7 +5,7 @@
 enum {
   // Motor speeds / PWM values (out of 255)
   VANE_MOTOR_SPEED = 220,
-  GATE_MOTOR_SPEED = 150,
+  GATE_MOTOR_SPEED = 255,
   SELECT_MOTOR_SPEED = 150,
 
   // Durations / timeouts
