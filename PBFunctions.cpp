@@ -5,18 +5,20 @@
 int switches[4] = { SEL_SW_HOME, SEL_SW_1, SEL_SW_2, SEL_SW_3 };
 
 void setupPins() {
-  pinMode(VANE_SW_1, INPUT);
-  pinMode(VANE_SW_2, INPUT);
 
-  pinMode(LOWER_ENABLE1, OUTPUT);
-  pinMode(LOWER_ENABLE2, OUTPUT);
-  pinMode(UPPER_ENABLE1, OUTPUT);
-  pinMode(UPPER_ENABLE2, OUTPUT);
-
-  digitalWrite(LOWER_ENABLE1, HIGH);
-  digitalWrite(LOWER_ENABLE2, HIGH);
-  digitalWrite(UPPER_ENABLE1, HIGH);
-  digitalWrite(UPPER_ENABLE2, HIGH);
+  pinMode(LOWER_LED1_EN, OUTPUT);
+  pinMode(LOWER_LED2_EN, OUTPUT);
+  pinMode(LOWER_LED3_EN, OUTPUT);
+  pinMode(UPPER_LED1_EN, OUTPUT);
+  pinMode(UPPER_LED2_EN, OUTPUT);
+  pinMode(UPPER_LED3_EN, OUTPUT);
+  
+  digitalWrite(LOWER_LED1_EN, LOW);
+  digitalWrite(LOWER_LED2_EN, LOW);
+  digitalWrite(LOWER_LED3_EN, LOW);
+  digitalWrite(UPPER_LED1_EN, LOW);
+  digitalWrite(UPPER_LED2_EN, LOW);
+  digitalWrite(UPPER_LED3_EN, LOW);
 
   pinMode(PUMP_ENABLE, OUTPUT);
   digitalWrite(PUMP_ENABLE, LOW);
@@ -24,6 +26,7 @@ void setupPins() {
   pinMode(SOL1_ENABLE, OUTPUT);
   pinMode(SOL2_ENABLE, OUTPUT);
   pinMode(SOL3_ENABLE, OUTPUT);
+  
   digitalWrite(SOL1_ENABLE, LOW);
   digitalWrite(SOL2_ENABLE, LOW);
   digitalWrite(SOL3_ENABLE, LOW);
@@ -33,9 +36,17 @@ void setupPins() {
   pinMode(SEL_SW_2, INPUT);
   pinMode(SEL_SW_3, INPUT);
 
-  pinMode(VANE_FWD, OUTPUT);
-  pinMode(VANE_REV, OUTPUT);
-  pinMode(VANE_PWM, OUTPUT);
+  pinMode(GATE_SW_INPUT, INPUT);
+  pinMode(GATE_SW_OUTPUT, INPUT);
+  pinMode(GATE_SW_CLOSED, INPUT);
+
+  pinMode(UVANE_FWD, OUTPUT);
+  pinMode(UVANE_REV, OUTPUT);
+  pinMode(UVANE_PWM, OUTPUT);
+
+  pinMode(LVANE_FWD, OUTPUT);
+  pinMode(LVANE_REV, OUTPUT);
+  pinMode(LVANE_PWM, OUTPUT);
 
   pinMode(SELECT_FWD, OUTPUT);
   pinMode(SELECT_REV, OUTPUT);
@@ -51,7 +62,8 @@ void setupPins() {
 
 void motorsOff() {
   driveMotor(MOTOR_SELECT, MOTOR_FWD, 0);
-  driveMotor(MOTOR_VANE, MOTOR_FWD, 0);
+  driveMotor(MOTOR_LVANE, MOTOR_FWD, 0);
+  driveMotor(MOTOR_UVANE, MOTOR_FWD, 0);
   driveMotor(MOTOR_GATE, MOTOR_FWD, 0);
 
 }
@@ -66,10 +78,15 @@ void driveMotor(Motor m, MotorDirection d, int pwm) {
       revPin = SELECT_REV;
       pwmPin = SELECT_PWM;
       break;
-    case MOTOR_VANE:
-      fwdPin = VANE_FWD;
-      revPin = VANE_REV;
-      pwmPin = VANE_PWM;
+    case MOTOR_LVANE:
+      fwdPin = LVANE_FWD;
+      revPin = LVANE_REV;
+      pwmPin = LVANE_PWM;
+      break;
+    case MOTOR_UVANE:
+      fwdPin = UVANE_FWD;
+      revPin = UVANE_REV;
+      pwmPin = UVANE_PWM;
       break;
     case MOTOR_GATE:
       fwdPin = GATE_FWD;
@@ -110,18 +127,6 @@ Status driveMotorUntil(Motor m, MotorDirection d, int pwm, int switchPin, boolea
   if ( timeOut ) { return MOTOR_TIMEOUT; }
 
   return SUCCESS;
-}
-
-Status driveVane(VaneChoice v) {
-
-  int switchPin = (v == VANE_UPPER) ? VANE_SW_1 : VANE_SW_2;
-
-  Status s = driveMotorUntil(MOTOR_VANE, MOTOR_FWD, VANE_MOTOR_SPEED, switchPin, LOW, VANE_MOTOR_TIMEOUT_MS, 1);
-  if ( s != SUCCESS ) { return s; }
-
-  delay(25);
-  return driveMotorUntil(MOTOR_VANE, MOTOR_REV, VANE_MOTOR_SPEED/2, switchPin, LOW, VANE_MOTOR_TIMEOUT_MS, 1);
-
 }
 
 Status homeSelect() {

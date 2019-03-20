@@ -1,10 +1,12 @@
 #include "Arduino.h"
 #include "PBFunctions.h"
 #include "pins.h"
+#include "Encoder.h"
 
 /*******************************
  * Revision hisory
  * 
+ * 8.0 New PCBs for v8 design
  * 1.7 Update to 2.1 PCB (microswitches for vanes, new motor drivers,
  *     new pin assignments, etc.)
  * 1.6 Fixed vane stepping code
@@ -51,12 +53,20 @@ I - info
 */
 
 
+// Encoder library by Paul Stoffregen
+// See: https://www.pjrc.com/teensy/td_libs_Encoder.html
+// Use Teensy++ 2.0 pin numbers here
+Encoder lvane_Encoder(3, 2); // D3, D2
+Encoder uvane_Encoder(1, 0); // D1, D0
+
 
 void setup() {
 
   Serial.begin(9600); //Open Serial connection for data logging & communication
 
   setupPins();
+  lvane_Encoder.write(0);
+  uvane_Encoder.write(0);
 
 }
 
@@ -67,121 +77,7 @@ void loop() {
   
   while ( Serial.available() > 0 ) {
     char serialCmd = Serial.read();
-    if ( serialCmd == 'A') {
-      digitalWrite(UPPER_ENABLE1, LOW);
-      digitalWrite(UPPER_ENABLE2, LOW);
-      digitalWrite(LOWER_ENABLE1, LOW);
-      digitalWrite(LOWER_ENABLE2, LOW);
-      Serial.println("A");
-    }
-    else if ( serialCmd == 'O') {
-      digitalWrite(UPPER_ENABLE1, HIGH);
-      digitalWrite(UPPER_ENABLE2, HIGH);
-      digitalWrite(LOWER_ENABLE1, HIGH);
-      digitalWrite(LOWER_ENABLE2, HIGH);
-      Serial.println("O");
-    }
-    else if ( serialCmd == 'U') {
-      digitalWrite(UPPER_ENABLE1, LOW);
-      Serial.println("U");
-    }
-    else if ( serialCmd == 'u') {
-      digitalWrite(UPPER_ENABLE2, LOW);
-      Serial.println("u");
-    }
-    else if ( serialCmd == 'L') {
-      digitalWrite(LOWER_ENABLE1, LOW);
-      Serial.println("L");
-    }
-    else if ( serialCmd == 'l') {
-      digitalWrite(LOWER_ENABLE2, LOW);
-      Serial.println("l");
-    }
-    else if ( serialCmd == 'S' ) {
-      Status s = driveVane(VANE_UPPER);
-      if ( s == SUCCESS ) {
-        Serial.println("S");
-      } else {
-        Serial.println("Timeout advancing vanes.");
-      }
-    }
-    else if ( serialCmd == 's' ) {
-      Status s = driveVane(VANE_LOWER);
-      if ( s == SUCCESS ) {
-        Serial.println("s");
-      } else {
-        Serial.println("Timeout advancing vanes.");
-      }
-    }
-    else if ( serialCmd == 'P' ) {
-      digitalWrite(PUMP_ENABLE, HIGH);
-      Serial.println("P");
-    }
-    else if ( serialCmd == 'p' ) {
-      digitalWrite(PUMP_ENABLE, LOW);
-      Serial.println("p");
-    }
-    else if ( serialCmd == 'F' ) {
-      driveGate(GATE_INLET);
-//      pbServo1.write( FRONT_GATE_OPEN );
-      Serial.println("F");
-    }
-    else if ( serialCmd == 'f' ) {
-      driveGate(GATE_CLOSED);
-      Serial.println("f");
-    }
-    else if ( serialCmd == 'B' ) {
-      driveGate(GATE_OUTLET);
-      Serial.println("B");
-    }
-    else if ( serialCmd == 'b' ) {
-      driveGate(GATE_CLOSED);
-      Serial.println("b");
-    }
-    else if ( serialCmd == 'H' ) {
-      // Home motor
-      Status s = homeSelect();
-      if ( s == SUCCESS ) {
-        homed = 1;
-        pos = 0;
-        Serial.println("H");
-      } else {
-        Serial.println("Failed to home motor");
-      }
-    }
-    else if ( serialCmd >= '1' && serialCmd <= '3' ) {
-      if ( homed == 0 ) { Serial.println("Not homed."); continue; }
-      Status s = driveSelect(serialCmd-'0', pos);
-      if ( s == SUCCESS ) {
-        pos = serialCmd-'0';
-        Serial.println(serialCmd);
-      } else {
-        Serial.println("Failed to position motor");
-      }
-    }
-    else if ( serialCmd == '0' ) {
-      // turn off all valves
-      digitalWrite(SOL1_ENABLE, LOW);
-      digitalWrite(SOL2_ENABLE, LOW);
-      digitalWrite(SOL3_ENABLE, LOW);
-      Serial.println("0");
-    }
-    else if ( serialCmd == 'q' ) {
-      // turn on valve #1
-      digitalWrite(SOL1_ENABLE, HIGH);
-      Serial.println("q");
-    }
-    else if ( serialCmd == 'w' ) {
-      // turn on valve #2
-      digitalWrite(SOL2_ENABLE, HIGH);
-      Serial.println("w");
-    }
-    else if ( serialCmd == 'e' ) {
-      // turn on valve #3
-      digitalWrite(SOL3_ENABLE, HIGH);
-      Serial.println("e");
-    }
-    else if ( serialCmd == 'V' ) {
+    if ( serialCmd == 'V' ) {
       Serial.println(VERSION_STRING);
     }
     else if ( serialCmd == 'I' ) {
@@ -191,8 +87,10 @@ void loop() {
       Serial.print("Switch 1: "); Serial.println(digitalRead(SEL_SW_1));
       Serial.print("Switch 2: "); Serial.println(digitalRead(SEL_SW_2));
       Serial.print("Switch 3: "); Serial.println(digitalRead(SEL_SW_3));
-      Serial.print("Vane switch 1 (upper): "); Serial.println(digitalRead(VANE_SW_1));
-      Serial.print("Vane switch 2 (lower): "); Serial.println(digitalRead(VANE_SW_2));
+      Serial.print("Lower vane position: "); Serial.println(lvane_Encoder.read());
+      Serial.print("Lower vane index: "); Serial.println(digitalRead(LVANE_N));
+      Serial.print("Upper vane position: "); Serial.println(uvane_Encoder.read());
+      Serial.print("Upper vane index: "); Serial.println(digitalRead(UVANE_N));
       Serial.print("Gate switch (input): "); Serial.println(digitalRead(GATE_SW_INPUT));
       Serial.print("Gate switch (output): "); Serial.println(digitalRead(GATE_SW_OUTPUT));
       Serial.print("Gate switch (closed): "); Serial.println(digitalRead(GATE_SW_CLOSED));

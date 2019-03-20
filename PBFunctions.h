@@ -1,6 +1,7 @@
 #include "pins.h"
 
-#define VERSION_STRING "Arduino Relay - version 1.7"
+// For board revisions: 20190305
+#define VERSION_STRING "Fly Photobooth - Version 8.0"
 
 enum {
   // Motor speeds / PWM values (out of 255)
@@ -20,8 +21,9 @@ enum {
 
 enum Motor {
   MOTOR_SELECT = 0,
-  MOTOR_VANE = 1,
-  MOTOR_GATE = 2
+  MOTOR_UVANE = 1,
+  MOTOR_LVANE = 2,
+  MOTOR_GATE = 3
 };
 
 enum MotorDirection {
