@@ -22,13 +22,17 @@
 #define GATE_PWM          PIN_B6
 
 // Lower vane position inputs
-#define LVANE_A           PIN_D3 // Teensy++ 2.0 pin 3
-#define LVANE_B           PIN_D2 // Teensy++ 2.0 pin 2
+#define LVANE_A           PIN_D2 // Teensy++ 2.0 pin 2
+#define LVANE_A_NUM       2
+#define LVANE_B           PIN_D3 // Teensy++ 2.0 pin 3
+#define LVANE_B_NUM       3
 #define LVANE_N           PIN_D6
 
 // Upper vane position inputs
 #define UVANE_A           PIN_D1 // Teensy++ 2.0 pin 1
+#define UVANE_A_NUM       1
 #define UVANE_B           PIN_D0 // Teensy++ 2.0 pin 0
+#define UVANE_B_NUM       0
 #define UVANE_N           PIN_B4
 
 // Selector module location switches

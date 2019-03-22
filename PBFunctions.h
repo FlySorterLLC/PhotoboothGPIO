@@ -7,7 +7,7 @@ enum {
   // Motor speeds / PWM values (out of 255)
   VANE_MOTOR_SPEED = 220,
   GATE_MOTOR_SPEED = 255,
-  SELECT_MOTOR_SPEED = 150,
+  SELECT_MOTOR_SPEED = 200,
 
   // Durations / timeouts
   GATE_MOTOR_TIMEOUT_MS = 1000,
@@ -17,6 +17,9 @@ enum {
 
   // Counts
   SWITCH_DEBOUNCE_READS = 5,
+
+  // Threshold
+  ENCODER_DEADBAND_SIZE = 5, // about half a degree
 };
 
 enum Motor {
@@ -34,6 +37,15 @@ enum MotorDirection {
 enum VaneChoice {
   VANE_UPPER = 0,
   VANE_LOWER = 1
+};
+
+enum VanePosition {
+  VANE_1  = 0,
+  VANE_1P = 1,
+  VANE_2  = 2,
+  VANE_2P = 3,
+  VANE_3  = 4,
+  VANE_3P = 5
 };
 
 enum GatePosition {
@@ -54,10 +66,13 @@ void motorsOff();
 void driveMotor(Motor m, MotorDirection d, int pwm);
 Status driveMotorUntil(Motor m, MotorDirection d, int pwm, int switchPin, boolean desiredState, int t, int r = SWITCH_DEBOUNCE_READS);
 
+Status homeGates();
 Status driveGate(GatePosition g);
-Status driveVane(VaneChoice v);
 Status homeSelect();
 Status driveSelect(int desiredPosition, int currentPosition);
+
+Status homeVane(VaneChoice v);
+Status driveVane(VaneChoice v, VanePosition p);
 
 void printStatus(Status s);
 
