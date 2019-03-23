@@ -174,7 +174,7 @@ Status homeGates() {
   Status s = driveMotorUntil(MOTOR_GATE, MOTOR_REV, GATE_MOTOR_SPEED, GATE_SW_INPUT, LOW, GATE_MOTOR_TIMEOUT_MS);
   if ( s != SUCCESS ) { return s; }
 
-  s = driveMotorUntil(MOTOR_GATE, MOTOR_FWD, GATE_MOTOR_SPEED, GATE_SW_CLOSED, LOW, GATE_MOTOR_TIMEOUT_MS);
+  s = driveMotorUntil(MOTOR_GATE, MOTOR_FWD, GATE_MOTOR_SPEED, GATE_SW_CLOSED, HIGH, GATE_MOTOR_TIMEOUT_MS);
   if ( s != SUCCESS ) { return s; }
   
 }
@@ -186,9 +186,9 @@ Status driveGate(GatePosition g) {
     return driveMotorUntil(MOTOR_GATE, MOTOR_FWD, GATE_MOTOR_SPEED, GATE_SW_OUTPUT, LOW, GATE_MOTOR_TIMEOUT_MS);
   } else if ( g == GATE_CLOSED ) {
     if ( digitalRead(GATE_SW_INPUT) == LOW ) {
-      return driveMotorUntil(MOTOR_GATE, MOTOR_FWD, GATE_MOTOR_SPEED, GATE_SW_CLOSED, LOW, GATE_MOTOR_TIMEOUT_MS);
+      return driveMotorUntil(MOTOR_GATE, MOTOR_FWD, GATE_MOTOR_SPEED, GATE_SW_CLOSED, HIGH, GATE_MOTOR_TIMEOUT_MS);
     } else if ( digitalRead(GATE_SW_OUTPUT) == LOW ) {
-      return driveMotorUntil(MOTOR_GATE, MOTOR_REV, GATE_MOTOR_SPEED, GATE_SW_CLOSED, LOW, GATE_MOTOR_TIMEOUT_MS);
+      return driveMotorUntil(MOTOR_GATE, MOTOR_REV, GATE_MOTOR_SPEED, GATE_SW_CLOSED, HIGH, GATE_MOTOR_TIMEOUT_MS);
     } else {
       return homeGates();
     }
