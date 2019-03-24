@@ -258,15 +258,15 @@ Status driveVane(VaneChoice v, VanePosition p) {
   }
 
   if ( p == VANE_1 ) {
-    targetPosition = 596*5;
+    targetPosition = 596;
   } else if ( p == VANE_1P ) {
-    targetPosition = 596*4;
+    targetPosition = 596*2;
   } else if ( p == VANE_2 ) {
     targetPosition = 596*3;
   } else if ( p == VANE_2P ) {
-    targetPosition = 596*2;
+    targetPosition = 596*4;
   } else if ( p == VANE_3 ) {
-    targetPosition = 596;
+    targetPosition = 596*5;
   } else if ( p == VANE_3P ) {
     targetPosition = 0;
   }

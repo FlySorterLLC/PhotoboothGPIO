@@ -55,9 +55,9 @@
 #define UPPER_LED3_EN      PIN_F2
 
 // Selector solenoid enable lines
-#define SOL1_ENABLE       PIN_C7
+#define SOL1_ENABLE       PIN_C3
 #define SOL2_ENABLE       PIN_C5
-#define SOL3_ENABLE       PIN_C3
+#define SOL3_ENABLE       PIN_C7
 
 // Enable line for the pump
 #define PUMP_ENABLE       PIN_C2
