@@ -8,6 +8,7 @@ enum {
   VANE_MOTOR_SPEED = 220,
   GATE_MOTOR_SPEED = 255,
   SELECT_MOTOR_SPEED = 200,
+  MIN_VANE_MOTOR_SPEED = 40,
 
   // Durations / timeouts
   GATE_MOTOR_TIMEOUT_MS = 1000,

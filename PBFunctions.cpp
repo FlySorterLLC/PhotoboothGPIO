@@ -242,7 +242,7 @@ Status driveVane(VaneChoice v, VanePosition p) {
    */
   int lastPosition, currentPosition, targetPosition, error;
   int output;
-  double kp = 2.0, ki = 0.00001, kd = 20.0;
+  double kp = 2.0, ki = 0.0001, kd = 20.0;
   double pTerm, iTerm=0, dTerm;
   unsigned long startTime = millis();
   Encoder *enc;
@@ -273,7 +273,13 @@ Status driveVane(VaneChoice v, VanePosition p) {
 
   currentPosition = lastPosition = enc->read();
   error = targetPosition - currentPosition;
-  
+
+//  NOTE: The Serial.print() does take some time, and so if you call it
+//        inside the while() loop, it will impact timing, which impacts
+//        kp, ki, and kd tuning.
+//
+//  Serial.print("  Target: "); Serial.println(targetPosition);
+//  Serial.print("  Init. pos: "); Serial.println(currentPosition);
   while ( ( abs(error) > ENCODER_DEADBAND_SIZE ) && ( !timeout ) ) {
     delay(2);
     currentPosition = enc->read();
@@ -286,6 +292,18 @@ Status driveVane(VaneChoice v, VanePosition p) {
     output = int ( pTerm + iTerm - dTerm );
     if (output > 255 ) { output = 255; }
     if (output < -255 ) { output = -255; }
+    if (output > 0 ) {
+      if ( output < MIN_VANE_MOTOR_SPEED ) { output = MIN_VANE_MOTOR_SPEED; }
+      if ( output > 255 ) { output = 255; }
+    } else {
+      if ( output > -MIN_VANE_MOTOR_SPEED ) { output = -MIN_VANE_MOTOR_SPEED; }
+      if ( output < -255 ) { output = -255; }
+    }
+//    Serial.print("  Curr: "); Serial.print(currentPosition);
+//    Serial.print("  pTerm: "); Serial.print(pTerm);
+//    Serial.print("  iTerm: "); Serial.print(iTerm);
+//    Serial.print("  dTerm: "); Serial.print(dTerm);
+//    Serial.print("  Out: "); Serial.println(output);
     if (output > 0 ) {
       driveMotor(m, MOTOR_REV, output);
     } else {
